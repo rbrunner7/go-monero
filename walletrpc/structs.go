@@ -1,5 +1,35 @@
 package walletrpc
 
+type GetAddressRequest struct {
+	AccountIndex   uint32   `json:"account_index"`
+	AddressIndices []uint32 `json:"address_index"`
+}
+
+type AddressInfo struct {
+	Address      string `json:"address"`
+	Label        string `json:"label"`
+	AddressIndex uint32 `json:"address_index"`
+	Used         bool   `json:"used"`
+}
+
+type GetAddressResponse struct {
+	Addresses []AddressInfo `json:"addresses"`
+}
+
+type ValidateAddressRequest struct {
+	Address        string `json:"address"`
+	AnyNetType     bool   `json:"any_net_type"`
+	AllowOpenAlias bool   `json:"allow_openalias"`
+}
+
+type ValidateAddressResponse struct {
+	Valid            bool   `json:"valid"`
+	Integrated       bool   `json:"integrated"`
+	Subaddress       bool   `json:"subaddress"`
+	NetType          string `json:"nettype"`
+	OpenAliasAddress string `json:"openalias_address"`
+}
+
 // TransferRequest is the request body of the Transfer client rpc call.
 type TransferRequest struct {
 	// Destinations - array of destinations to receive XMR:
@@ -130,6 +160,7 @@ type Transfer struct {
 	Note         string        `json:"note"`
 	Destinations []Destination `json:"destinations,omitempty"` // TODO: check if deprecated
 	Type         string        `json:"type"`
+	Address      string        `json:"address"`
 }
 
 // IncTransfer is returned by IncomingTransfers

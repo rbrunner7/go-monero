@@ -14,7 +14,11 @@ type Client interface {
 	GetBalance() (balance, unlockedBalance uint64, err error)
 	// Return the wallet's address.
 	// address - string; The 95-character hex address string of the monero-wallet-rpc in session.
-	GetAddress() (address string, err error)
+	GetAddress(req GetAddressRequest) (resp *GetAddressResponse, err error)
+	// Create a new subaddress for account 0
+	CreateSubaddress() (address string, err error)
+	// Validate and classify an address
+	ValidateAddress(req ValidateAddressRequest) (resp *ValidateAddressResponse, err error)
 	// GetHeight - Returns the wallet's current block height.
 	// height - unsigned int; The current monero-wallet-rpc's blockchain height.
 	// If the wallet has been offline for a long time, it may need to catch up with the daemon.
@@ -65,6 +69,10 @@ type Client interface {
 	SetTxNotes(txids, notes []string) error
 	// Get string notes for transactions.
 	GetTxNotes(txids []string) (notes []string, err error)
+	// Set an attribute value
+	SetAttribute(key string, value string) error
+	// Get an attribute value
+	GetAttribute(key string) (value string, err error)
 	// Sign a string.
 	Sign(data string) (signature string, err error)
 	// Verify a signature on a string.
@@ -80,7 +88,7 @@ type Client interface {
 	AddAddressBook(entry AddressBookEntry) (index uint64, err error)
 	// Delete an entry from the address book.
 	DeleteAddressBook(index uint64) error
-	// Rescan the blockchain for spent outputs.
+	// Rescan the blockchain from scratch.
 	RescanSpent() error
 	// Start mining in the Monero daemon.
 	// Inputs:
@@ -170,15 +178,38 @@ func (c *client) GetBalance() (balance, unlockedBalance uint64, err error) {
 	return jd.Balance, jd.UnlockedBalance, err
 }
 
-func (c *client) GetAddress() (address string, err error) {
-	jd := struct {
-		Address string `json:"address"`
+func (c *client) GetAddress(req GetAddressRequest) (resp *GetAddressResponse, err error) {
+	resp = &GetAddressResponse{}
+	err = c.do("getaddress", &req, resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+func (c *client) CreateSubaddress() (address string, err error) {
+	req := struct {
+		AccountIndex uint32 `json:"account_index"`
+		Label        string `json:"label"`
+	}{0, ""}
+	resp := struct {
+		Address      string `json:"address"`
+		AddressIndex uint32 `json:"address_index"`
 	}{}
-	err = c.do("getaddress", nil, &jd)
+	err = c.do("create_address", req, &resp)
 	if err != nil {
 		return "", err
 	}
-	return jd.Address, nil
+	return resp.Address, nil
+}
+
+func (c *client) ValidateAddress(req ValidateAddressRequest) (resp *ValidateAddressResponse, err error) {
+	resp = &ValidateAddressResponse{}
+	err = c.do("validate_address", &req, resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
 }
 
 func (c *client) GetHeight() (height uint64, err error) {
@@ -420,6 +451,34 @@ func (c *client) GetTxNotes(txids []string) (notes []string, err error) {
 		return nil, err
 	}
 	notes = jd.Notes
+	return
+}
+
+func (c *client) SetAttribute(key string, value string) error {
+	jin := struct {
+		Key   string `json:"key"`
+		Value string `json:"value"`
+	}{
+		key,
+		value,
+	}
+	return c.do("set_attribute", &jin, nil)
+}
+
+func (c *client) GetAttribute(key string) (value string, err error) {
+	jin := struct {
+		Key string `json:"key"`
+	}{
+		key,
+	}
+	jd := struct {
+		Value string `json:"value"`
+	}{}
+	err = c.do("get_attribute", &jin, &jd)
+	if err != nil {
+		return "", err
+	}
+	value = jd.Value
 	return
 }
 
